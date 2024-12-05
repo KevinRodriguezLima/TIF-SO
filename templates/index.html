@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoreo de Procesos</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.0/socket.io.js"></script>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        button {
+            padding: 5px 10px;
+            margin: 0 5px;
+            cursor: pointer;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Monitoreo de Procesos</h1>
+    <p>aqui se mostraran todos los procesos desde que se arranque la pc y los procesos en vivo, actualemente estas viendo sólo los procesos en vivo, puedes cambiar la prioridad de un proceso con los botones + y -.</p>
+    <table id="tabla-procesos">
+        <thead>
+            <tr>
+                <th>PID</th>
+                <th>Nombre</th>
+                <th>Hora de Inicio</th>
+                <th>Prioridad</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+    <script>
+        const socket = io();
+
+        socket.on('proceso_nuevo', function (procesos) {
+            const cuerpoTabla = document.getElementById('tabla-procesos').querySelector('tbody');
+            procesos.forEach(proceso => {
+                const fila = document.createElement('tr');
+                fila.id = `fila-${proceso.pid}`;
+                fila.innerHTML = `
+                    <td>${proceso.pid}</td>
+                    <td>${proceso.nombre}</td>
+                    <td>${proceso.hora_inicio}</td>
+                    <td id="prioridad-${proceso.pid}">${proceso.prioridad}</td>
+                    <td>
+                        <button onclick="cambiarPrioridad(${proceso.pid}, -1)">-</button>
+                        <button onclick="cambiarPrioridad(${proceso.pid}, 1)">+</button>
+                    </td>
+                `;
+                cuerpoTabla.appendChild(fila);
+            });
+        });
+
+        function cambiarPrioridad(pid, delta) {
+            const prioridadActual = parseInt(document.getElementById(`prioridad-${pid}`).innerText);
+            const nuevaPrioridad = Math.max(0, Math.min(10, prioridadActual + delta)); 
+
+            socket.emit('cambiar_prioridad', { pid: pid, prioridad: nuevaPrioridad });
+        }
+
+        socket.on('prioridad_cambiada', function (datos) {
+            const { pid, nueva_prioridad } = datos;
+            const celdaPrioridad = document.getElementById(`prioridad-${pid}`);
+            if (celdaPrioridad) {
+                celdaPrioridad.innerText = nueva_prioridad;
+            }
+        });
+
+        socket.on('error', function (datos) {
+            console.error("¡Ups! Algo salió mal:", datos);
+        });
+    </script>
+</body>
+</html>
+
