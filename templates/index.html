@@ -32,7 +32,7 @@
 </head>
 <body>
     <h1>Monitoreo de Procesos</h1>
-    <p>aquí se mostrarán todos los procesos en vivo. Actualmente estás viendo los procesos en vivo, y puedes cambiar la prioridad de un proceso con los botones + y -.</p>
+    <p>Aquí se mostrarán todos los procesos en vivo. Actualmente estás viendo los procesos en vivo, y puedes cambiar la prioridad de un proceso con los botones + y -.</p>
     
     <button onclick="window.location.href='/crear_proceso'">Añadir Nuevo Proceso</button>
 
@@ -47,6 +47,19 @@
             </tr>
         </thead>
         <tbody>
+            {% for proceso in procesos %}
+            <tr id="fila-{{ proceso.pid }}">
+                <td>{{ proceso.pid }}</td>
+                <td>{{ proceso.nombre }}</td>
+                <td>{{ proceso.hora_inicio }}</td>
+                <td id="prioridad-{{ proceso.pid }}">{{ proceso.prioridad }}</td>
+                <td>
+                    <button onclick="cambiarPrioridad({{ proceso.pid }}, -1)">-</button>
+                    <button onclick="cambiarPrioridad({{ proceso.pid }}, 1)">+</button>
+                    <button onclick="eliminarProceso({{ proceso.pid }})">Eliminar</button>
+                </td>
+            </tr>
+            {% endfor %}
         </tbody>
     </table>
 
@@ -96,7 +109,7 @@
             const pid = datos.pid;
             const fila = document.getElementById(`fila-${pid}`);
             if (fila) {
-                fila.remove();  // Eliminar la fila de la tabla
+                fila.remove();
             }
         });
 

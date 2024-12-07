@@ -12,7 +12,21 @@ prioridades_procesos = {}
 
 @app.route('/')
 def inicio():
-    return render_template('index.html')
+    procesos = []
+    for pid, prioridad in prioridades_procesos.items():
+        try:
+            proc = psutil.Process(pid)
+            info_proceso = {
+                "pid": proc.pid,
+                "nombre": proc.name(),
+                "hora_inicio": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(proc.create_time())),
+                "prioridad": prioridad
+            }
+            procesos.append(info_proceso)
+        except psutil.NoSuchProcess:
+            pass
+
+    return render_template('index.html', procesos=procesos)
 
 @app.route('/crear_proceso', methods=['GET', 'POST'])
 def crear_proceso():
@@ -37,7 +51,6 @@ def crear_proceso():
         socketio.emit('proceso_nuevo', [info_proceso])
 
         return redirect('/')
-    
     return render_template('crear_proceso.html', max_pid=max_pid)
 
 
