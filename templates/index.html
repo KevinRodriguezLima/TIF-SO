@@ -32,7 +32,10 @@
 </head>
 <body>
     <h1>Monitoreo de Procesos</h1>
-    <p>aqui se mostraran todos los procesos desde que se arranque la pc y los procesos en vivo, actualemente estas viendo sólo los procesos en vivo, puedes cambiar la prioridad de un proceso con los botones + y -.</p>
+    <p>aquí se mostrarán todos los procesos en vivo. Actualmente estás viendo los procesos en vivo, y puedes cambiar la prioridad de un proceso con los botones + y -.</p>
+    
+    <button onclick="window.location.href='/crear_proceso'">Añadir Nuevo Proceso</button>
+
     <table id="tabla-procesos">
         <thead>
             <tr>
@@ -46,6 +49,7 @@
         <tbody>
         </tbody>
     </table>
+
     <script>
         const socket = io();
 
@@ -62,6 +66,7 @@
                     <td>
                         <button onclick="cambiarPrioridad(${proceso.pid}, -1)">-</button>
                         <button onclick="cambiarPrioridad(${proceso.pid}, 1)">+</button>
+                        <button onclick="eliminarProceso(${proceso.pid})">Eliminar</button>
                     </td>
                 `;
                 cuerpoTabla.appendChild(fila);
@@ -75,11 +80,23 @@
             socket.emit('cambiar_prioridad', { pid: pid, prioridad: nuevaPrioridad });
         }
 
+        function eliminarProceso(pid) {
+            socket.emit('eliminar_proceso', { pid: pid });
+        }
+
         socket.on('prioridad_cambiada', function (datos) {
             const { pid, nueva_prioridad } = datos;
             const celdaPrioridad = document.getElementById(`prioridad-${pid}`);
             if (celdaPrioridad) {
                 celdaPrioridad.innerText = nueva_prioridad;
+            }
+        });
+
+        socket.on('proceso_eliminado', function (datos) {
+            const pid = datos.pid;
+            const fila = document.getElementById(`fila-${pid}`);
+            if (fila) {
+                fila.remove();  // Eliminar la fila de la tabla
             }
         });
 

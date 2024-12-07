@@ -1,8 +1,9 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, request, redirect
 from flask_socketio import SocketIO, emit
 import psutil
 import time
 import random
+from datetime import datetime
 
 app = Flask(__name__)
 socketio = SocketIO(app)
@@ -12,6 +13,33 @@ prioridades_procesos = {}
 @app.route('/')
 def inicio():
     return render_template('index.html')
+
+@app.route('/crear_proceso', methods=['GET', 'POST'])
+def crear_proceso():
+    max_pid = max(prioridades_procesos.keys(), default=0)
+
+    if request.method == 'POST':
+        nombre = request.form['nombre']
+        pid = max_pid + 1
+        prioridad = int(request.form['prioridad'])
+        
+        hora_inicio = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        prioridades_procesos[pid] = prioridad
+
+        info_proceso = {
+            "pid": pid,
+            "nombre": nombre,
+            "hora_inicio": hora_inicio,
+            "prioridad": prioridad
+        }
+
+        socketio.emit('proceso_nuevo', [info_proceso])
+
+        return redirect('/')
+    
+    return render_template('crear_proceso.html', max_pid=max_pid)
+
 
 def vigilar_procesos():
     pids_anteriores = set(proc.pid for proc in psutil.process_iter())
@@ -51,6 +79,14 @@ def manejar_cambio_prioridad(datos):
     if pid in prioridades_procesos:
         prioridades_procesos[pid] = nueva_prioridad
         socketio.emit('prioridad_cambiada', {'pid': pid, 'nueva_prioridad': nueva_prioridad})
+
+@socketio.on('eliminar_proceso')
+def eliminar_proceso(datos):
+    """Maneja la eliminación de un proceso."""
+    pid = datos['pid']
+    if pid in prioridades_procesos:
+        del prioridades_procesos[pid]
+        socketio.emit('proceso_eliminado', {'pid': pid})
 
 @socketio.on('connect')
 def manejar_conexion():
