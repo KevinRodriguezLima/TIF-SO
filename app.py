@@ -9,6 +9,7 @@ app = Flask(__name__)
 socketio = SocketIO(app)
 
 prioridades_procesos = {}
+procesos_manuales = {}
 
 @app.route('/')
 def inicio():
@@ -25,7 +26,10 @@ def inicio():
             procesos.append(info_proceso)
         except psutil.NoSuchProcess:
             pass
-    print(f"Procesos en inicio: {procesos}")
+
+    for pid, info_proceso in procesos_manuales.items():
+        procesos.append(info_proceso)
+        
     return render_template('index.html', procesos=procesos)
 
 @app.route('/crear_proceso', methods=['GET', 'POST'])
@@ -39,21 +43,21 @@ def crear_proceso():
         
         hora_inicio = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-        prioridades_procesos[pid] = prioridad
-
         info_proceso = {
             "pid": pid,
             "nombre": nombre,
             "hora_inicio": hora_inicio,
             "prioridad": prioridad
         }
-        
+
+        procesos_manuales[pid] = info_proceso
         socketio.emit('proceso_nuevo', [info_proceso])
         print(f"Proceso agregado: {info_proceso}")
-        print(f"Prioridades de procesos: {prioridades_procesos}")
+        print(f"Procesos manuales: {procesos_manuales}")
         print("Evento 'proceso_nuevo' emitido")
         return redirect('/')
     return render_template('crear_proceso.html', max_pid=max_pid)
+
 
 def vigilar_procesos():
     pids_anteriores = set(proc.pid for proc in psutil.process_iter())
