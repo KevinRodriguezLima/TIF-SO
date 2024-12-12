@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Todos los Núcleos</title>
+    <style>
+        .nucleo {
+            width: 45%;
+            display: inline-block;
+            vertical-align: top;
+            margin: 2%;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+    </style>
+</head>
+<body>
+    <h1>Procesos en Todos los Núcleos</h1>
+    <div class="nucleo">
+        <h2>Núcleo 1</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>PID</th>
+                    <th>Nombre</th>
+                    <th>Prioridad</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pid, proceso in procesos_manuales[1].items() %}
+                <tr>
+                    <td>{{ proceso.pid }}</td>
+                    <td>{{ proceso.nombre }}</td>
+                    <td>{{ proceso.prioridad }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="nucleo">
+        <h2>Núcleo 2</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>PID</th>
+                    <th>Nombre</th>
+                    <th>Prioridad</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pid, proceso in procesos_manuales[2].items() %}
+                <tr>
+                    <td>{{ proceso.pid }}</td>
+                    <td>{{ proceso.nombre }}</td>
+                    <td>{{ proceso.prioridad }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="nucleo">
+        <h2>Núcleo 3</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>PID</th>
+                    <th>Nombre</th>
+                    <th>Prioridad</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pid, proceso in procesos_manuales[3].items() %}
+                <tr>
+                    <td>{{ proceso.pid }}</td>
+                    <td>{{ proceso.nombre }}</td>
+                    <td>{{ proceso.prioridad }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="nucleo">
+        <h2>Núcleo 4</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>PID</th>
+                    <th>Nombre</th>
+                    <th>Prioridad</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pid, proceso in procesos_manuales[4].items() %}
+                <tr>
+                    <td>{{ proceso.pid }}</td>
+                    <td>{{ proceso.nombre }}</td>
+                    <td>{{ proceso.prioridad }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <br>
+    <a href="/">Volver</a>
+</body>
+</html>

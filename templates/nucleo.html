@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Núcleo {{ nucleo_id }}</title>
+</head>
+<body>
+    <h1>Procesos en Núcleo {{ nucleo_id }}</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>PID</th>
+                <th>Nombre</th>
+                <th>Hora de Inicio</th>
+                <th>Prioridad</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for proceso in procesos %}
+            <tr id="fila-{{ proceso.pid }}">
+                <td>{{ proceso.pid }}</td>
+                <td>{{ proceso.nombre }}</td>
+                <td>{{ proceso.hora_inicio }}</td>
+                <td id="prioridad-{{ proceso.pid }}">{{ proceso.prioridad }}</td>
+                <td>
+                    <button onclick="cambiarPrioridad({{ proceso.pid }}, -1)">-</button>
+                    <button onclick="cambiarPrioridad({{ proceso.pid }}, 1)">+</button>
+                    <button onclick="eliminarProceso({{ proceso.pid }})">Eliminar</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <br>
+    <a href="/">Volver</a>
+
+    <script>
+        const socket = io();
+
+        function cambiarPrioridad(pid, delta) {
+            const prioridadActual = parseInt(document.getElementById(`prioridad-${pid}`).innerText);
+            const nuevaPrioridad = Math.max(0, Math.min(10, prioridadActual + delta)); 
+
+            socket.emit('cambiar_prioridad', { pid: pid, prioridad: nuevaPrioridad });
+        }
+
+        function eliminarProceso(pid) {
+            socket.emit('eliminar_proceso', { pid: pid });
+        }
+
+        socket.on('prioridad_cambiada', function (datos) {
+            const { pid, nueva_prioridad } = datos;
+            const celdaPrioridad = document.getElementById(`prioridad-${pid}`);
+            if (celdaPrioridad) {
+                celdaPrioridad.innerText = nueva_prioridad;
+            }
+        });
+
+        socket.on('proceso_eliminado', function (datos) {
+            const pid = datos.pid;
+            const fila = document.getElementById(`fila-${pid}`);
+            if (fila) {
+                fila.remove();
+            }
+        });
+
+        socket.on('error', function (datos) {
+            console.error("¡Ups! Algo salió mal:", datos);
+        });
+    </script>
+</body>
+</html>
