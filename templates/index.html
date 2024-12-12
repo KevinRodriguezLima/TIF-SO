@@ -67,6 +67,7 @@
         const socket = io();
 
         socket.on('proceso_nuevo', function (procesos) {
+            console.log('Nuevo proceso recibido:', procesos);
             const cuerpoTabla = document.getElementById('tabla-procesos').querySelector('tbody');
             procesos.forEach(proceso => {
                 const fila = document.createElement('tr');
@@ -119,4 +120,3 @@
     </script>
 </body>
 </html>
-

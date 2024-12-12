@@ -25,7 +25,7 @@ def inicio():
             procesos.append(info_proceso)
         except psutil.NoSuchProcess:
             pass
-
+    print(f"Procesos en inicio: {procesos}")
     return render_template('index.html', procesos=procesos)
 
 @app.route('/crear_proceso', methods=['GET', 'POST'])
@@ -47,12 +47,13 @@ def crear_proceso():
             "hora_inicio": hora_inicio,
             "prioridad": prioridad
         }
-
+        
         socketio.emit('proceso_nuevo', [info_proceso])
-
+        print(f"Proceso agregado: {info_proceso}")
+        print(f"Prioridades de procesos: {prioridades_procesos}")
+        print("Evento 'proceso_nuevo' emitido")
         return redirect('/')
     return render_template('crear_proceso.html', max_pid=max_pid)
-
 
 def vigilar_procesos():
     pids_anteriores = set(proc.pid for proc in psutil.process_iter())
@@ -108,4 +109,3 @@ def manejar_conexion():
 if __name__ == '__main__':
     socketio.start_background_task(vigilar_procesos)
     socketio.run(app, host='0.0.0.0', port=5000)
-
