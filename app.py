@@ -1,15 +1,32 @@
 from flask import Flask, render_template, request, redirect
-from flask_socketio import SocketIO, emit
+from flask_socketio import SocketIO
+from round_robin import round_robin_bp, init_app
 import psutil
 import time
-import random
 from datetime import datetime
 
 app = Flask(__name__)
 socketio = SocketIO(app)
+init_app(socketio)
+app.register_blueprint(round_robin_bp, url_prefix='/round_robin')
 
 prioridades_procesos = {}
 procesos_manuales = {}
+
+class Proceso:
+    def __init__(self, pid, nombre, hora_inicio, prioridad):
+        self.pid = pid
+        self.nombre = nombre
+        self.hora_inicio = hora_inicio
+        self.prioridad = prioridad
+
+    def add(self):
+        return {
+            "pid": self.pid,
+            "nombre": self.nombre,
+            "hora_inicio": self.hora_inicio,
+            "prioridad": self.prioridad
+        }
 
 @app.route('/')
 def inicio():
@@ -17,18 +34,17 @@ def inicio():
     for pid, prioridad in prioridades_procesos.items():
         try:
             proc = psutil.Process(pid)
-            info_proceso = {
-                "pid": proc.pid,
-                "nombre": proc.name(),
-                "hora_inicio": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(proc.create_time())),
-                "prioridad": prioridad
-            }
-            procesos.append(info_proceso)
+            procesos.append(Proceso(
+                pid=proc.pid,
+                nombre=proc.name(),
+                hora_inicio=time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(proc.create_time())),
+                prioridad=prioridad
+            ).add())
         except psutil.NoSuchProcess:
             pass
 
     for pid, info_proceso in procesos_manuales.items():
-        procesos.append(info_proceso)
+        procesos.append(info_proceso.add())
         
     return render_template('index.html', procesos=procesos)
 
@@ -43,21 +59,11 @@ def crear_proceso():
         
         hora_inicio = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-        info_proceso = {
-            "pid": pid,
-            "nombre": nombre,
-            "hora_inicio": hora_inicio,
-            "prioridad": prioridad
-        }
-
-        procesos_manuales[pid] = info_proceso
-        socketio.emit('proceso_nuevo', [info_proceso])
-        print(f"Proceso agregado: {info_proceso}")
-        print(f"Procesos manuales: {procesos_manuales}")
-        print("Evento 'proceso_nuevo' emitido")
+        nuevo_proceso = Proceso(pid, nombre, hora_inicio, prioridad)
+        procesos_manuales[pid] = nuevo_proceso
+        socketio.emit('proceso_nuevo', [nuevo_proceso.add()])
         return redirect('/')
     return render_template('crear_proceso.html', max_pid=max_pid)
-
 
 def vigilar_procesos():
     pids_anteriores = set(proc.pid for proc in psutil.process_iter())
@@ -72,13 +78,13 @@ def vigilar_procesos():
                     proc = psutil.Process(pid)
                     prioridad_random = random.randint(0, 10)
                     prioridades_procesos[pid] = prioridad_random
-                    info_proceso = {
-                        "pid": proc.pid,
-                        "nombre": proc.name(),
-                        "hora_inicio": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(proc.create_time())),
-                        "prioridad": prioridad_random
-                    }
-                    procesos_nuevos.append(info_proceso)
+                    nuevo_proceso = Proceso(
+                        pid=proc.pid,
+                        nombre=proc.name(),
+                        hora_inicio=time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(proc.create_time())),
+                        prioridad=prioridad_random
+                    )
+                    procesos_nuevos.append(nuevo_proceso.add())
                 except psutil.NoSuchProcess:
                     pass
 
@@ -87,24 +93,6 @@ def vigilar_procesos():
 
         pids_anteriores = pids_actuales
         time.sleep(1)
-
-@socketio.on('cambiar_prioridad')
-def manejar_cambio_prioridad(datos):
-    """Maneja cuando alguien quiere cambiar la prioridad de un proceso."""
-    pid = datos['pid']
-    nueva_prioridad = datos['prioridad']
-    
-    if pid in prioridades_procesos:
-        prioridades_procesos[pid] = nueva_prioridad
-        socketio.emit('prioridad_cambiada', {'pid': pid, 'nueva_prioridad': nueva_prioridad})
-
-@socketio.on('eliminar_proceso')
-def eliminar_proceso(datos):
-    """Maneja la eliminación de un proceso."""
-    pid = datos['pid']
-    if pid in prioridades_procesos:
-        del prioridades_procesos[pid]
-        socketio.emit('proceso_eliminado', {'pid': pid})
 
 @socketio.on('connect')
 def manejar_conexion():
