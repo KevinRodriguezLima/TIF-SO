@@ -8,146 +8,218 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            margin: 20px;
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
+
+        .navbar {
+            background-color: #007BFF;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+        }
+
+        .navbar button, .navbar a {
+            margin: 5px;
+            padding: 10px 15px;
+            background-color: white;
+            color: #007BFF;
+            border: none;
+            border-radius: 4px;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .navbar button:hover, .navbar a:hover {
+            background-color: #0056b3;
+            color: white;
+        }
+
+        .intro {
+            margin-top: 80px;
+            padding: 20px;
+            text-align: center;
+            background-color: #f9f9f9;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .intro h1 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .intro p {
+            color: #666;
+        }
+
+        .nucleo-navigation {
+            margin-top: 10px;
+        }
+
+        .nucleo-navigation button {
+            margin: 5px;
+            padding: 10px 15px;
+            background-color: #0056b3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .nucleo-navigation button:hover {
+            background-color: #003d80;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .nucleo {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            overflow: auto;
+            height: 300px;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
-            margin: 20px 0;
         }
+
         th, td {
             border: 1px solid #ddd;
             padding: 8px;
             text-align: center;
         }
+
         th {
             background-color: #f4f4f4;
         }
-        button {
-            padding: 10px 15px;
-            margin: 5px;
-            cursor: pointer;
-            background-color: #007BFF;
-            color: white;
-            border: none;
-            border-radius: 4px;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        h1, h2 {
+
+        h2 {
             color: #333;
-        }
-        .nucleo {
-            margin-bottom: 30px;
-        }
-        a {
-            color: #007BFF;
-            text-decoration: none;
-        }
-        a:hover {
-            text-decoration: underline;
+            margin-top: 0;
         }
     </style>
 </head>
 <body>
-    <h1>Monitoreo de Procesos</h1>
-    <p>Los procesos están organizados por núcleos según su prioridad. Usa los botones para crear un proceso o ver detalles de un núcleo específico.</p>
-    
-    <button onclick="window.location.href='/crear_proceso'">Añadir Nuevo Proceso</button>
-    <button onclick="window.location.href='/nucleo/1'">Ver Núcleo 1</button>
-    <button onclick="window.location.href='/nucleo/2'">Ver Núcleo 2</button>
-    <button onclick="window.location.href='/nucleo/3'">Ver Núcleo 3</button>
-    <button onclick="window.location.href='/nucleo/4'">Ver Núcleo 4</button>
-
-    <div class="nucleo">
-        <h2>Núcleo 1</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>PID</th>
-                    <th>Nombre</th>
-                    <th>Prioridad</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for proceso in procesos_nucleo[1] %}
-                <tr>
-                    <td>{{ proceso['pid'] }}</td>
-                    <td>{{ proceso['nombre'] }}</td>
-                    <td>{{ proceso['prioridad'] }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="navbar">
+        <button onclick="window.location.href='/crear_proceso'">Añadir Nuevo Proceso</button>
+        <button onclick="window.location.href='/'">Refrescar</button>
     </div>
 
-    <div class="nucleo">
-        <h2>Núcleo 2</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>PID</th>
-                    <th>Nombre</th>
-                    <th>Prioridad</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for proceso in procesos_nucleo[2] %}
-                <tr>
-                    <td>{{ proceso['pid'] }}</td>
-                    <td>{{ proceso['nombre'] }}</td>
-                    <td>{{ proceso['prioridad'] }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <div class="intro">
+        <h1>Monitoreo de Procesos</h1>
+        <p>Los procesos están organizados por núcleos según su prioridad. Usa los botones para crear un proceso o ver detalles de un núcleo específico.</p>
+        <div class="nucleo-navigation">
+            <button onclick="window.location.href='/nucleo/1'">Ver Núcleo 1</button>
+            <button onclick="window.location.href='/nucleo/2'">Ver Núcleo 2</button>
+            <button onclick="window.location.href='/nucleo/3'">Ver Núcleo 3</button>
+            <button onclick="window.location.href='/nucleo/4'">Ver Núcleo 4</button>
+        </div>
     </div>
 
-    <div class="nucleo">
-        <h2>Núcleo 3</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>PID</th>
-                    <th>Nombre</th>
-                    <th>Prioridad</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for proceso in procesos_nucleo[3] %}
-                <tr>
-                    <td>{{ proceso['pid'] }}</td>
-                    <td>{{ proceso['nombre'] }}</td>
-                    <td>{{ proceso['prioridad'] }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+    <div class="container">
+        <!-- Núcleo 1 -->
+        <div class="nucleo">
+            <h2>Núcleo 1</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>PID</th>
+                        <th>Nombre</th>
+                        <th>Prioridad</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for proceso in procesos_nucleo[1] %}
+                    <tr>
+                        <td>{{ proceso['pid'] }}</td>
+                        <td>{{ proceso['nombre'] }}</td>
+                        <td>{{ proceso['prioridad'] }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
 
-    <div class="nucleo">
-        <h2>Núcleo 4</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>PID</th>
-                    <th>Nombre</th>
-                    <th>Prioridad</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for proceso in procesos_nucleo[4] %}
-                <tr>
-                    <td>{{ proceso['pid'] }}</td>
-                    <td>{{ proceso['nombre'] }}</td>
-                    <td>{{ proceso['prioridad'] }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <!-- Núcleo 2 -->
+        <div class="nucleo">
+            <h2>Núcleo 2</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>PID</th>
+                        <th>Nombre</th>
+                        <th>Prioridad</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for proceso in procesos_nucleo[2] %}
+                    <tr>
+                        <td>{{ proceso['pid'] }}</td>
+                        <td>{{ proceso['nombre'] }}</td>
+                        <td>{{ proceso['prioridad'] }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Núcleo 3 -->
+        <div class="nucleo">
+            <h2>Núcleo 3</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>PID</th>
+                        <th>Nombre</th>
+                        <th>Prioridad</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for proceso in procesos_nucleo[3] %}
+                    <tr>
+                        <td>{{ proceso['pid'] }}</td>
+                        <td>{{ proceso['nombre'] }}</td>
+                        <td>{{ proceso['prioridad'] }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Núcleo 4 -->
+        <div class="nucleo">
+            <h2>Núcleo 4</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>PID</th>
+                        <th>Nombre</th>
+                        <th>Prioridad</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for proceso in procesos_nucleo[4] %}
+                    <tr>
+                        <td>{{ proceso['pid'] }}</td>
+                        <td>{{ proceso['nombre'] }}</td>
+                        <td>{{ proceso['prioridad'] }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
-    <br>
-    <a href="/">Volver a Inicio</a>
 </body>
 </html>
