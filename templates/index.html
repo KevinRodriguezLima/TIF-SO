@@ -6,10 +6,14 @@
     <title>Monitoreo de Procesos</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.0/socket.io.js"></script>
     <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 20px;
+            margin: 20px 0;
         }
         th, td {
             border: 1px solid #ddd;
@@ -20,103 +24,130 @@
             background-color: #f4f4f4;
         }
         button {
-            padding: 5px 10px;
-            margin: 0 5px;
+            padding: 10px 15px;
+            margin: 5px;
             cursor: pointer;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 4px;
         }
-        .error {
-            color: red;
-            font-weight: bold;
+        button:hover {
+            background-color: #0056b3;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .nucleo {
+            margin-bottom: 30px;
+        }
+        a {
+            color: #007BFF;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
 <body>
     <h1>Monitoreo de Procesos</h1>
-    <p>Aquí se mostrarán todos los procesos en vivo. Actualmente estás viendo los procesos en vivo, y puedes cambiar la prioridad de un proceso con los botones + y -.</p>
+    <p>Los procesos están organizados por núcleos según su prioridad. Usa los botones para crear un proceso o ver detalles de un núcleo específico.</p>
     
     <button onclick="window.location.href='/crear_proceso'">Añadir Nuevo Proceso</button>
+    <button onclick="window.location.href='/nucleo/1'">Ver Núcleo 1</button>
+    <button onclick="window.location.href='/nucleo/2'">Ver Núcleo 2</button>
+    <button onclick="window.location.href='/nucleo/3'">Ver Núcleo 3</button>
+    <button onclick="window.location.href='/nucleo/4'">Ver Núcleo 4</button>
 
-    <table id="tabla-procesos">
-        <thead>
-            <tr>
-                <th>PID</th>
-                <th>Nombre</th>
-                <th>Hora de Inicio</th>
-                <th>Prioridad</th>
-                <th>Acciones</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for proceso in procesos %}
-            <tr id="fila-{{ proceso.pid }}">
-                <td>{{ proceso.pid }}</td>
-                <td>{{ proceso.nombre }}</td>
-                <td>{{ proceso.hora_inicio }}</td>
-                <td id="prioridad-{{ proceso.pid }}">{{ proceso.prioridad }}</td>
-                <td>
-                    <button onclick="cambiarPrioridad({{ proceso.pid }}, -1)">-</button>
-                    <button onclick="cambiarPrioridad({{ proceso.pid }}, 1)">+</button>
-                    <button onclick="eliminarProceso({{ proceso.pid }})">Eliminar</button>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="nucleo">
+        <h2>Núcleo 1</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>PID</th>
+                    <th>Nombre</th>
+                    <th>Prioridad</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for proceso in procesos_nucleo[1] %}
+                <tr>
+                    <td>{{ proceso['pid'] }}</td>
+                    <td>{{ proceso['nombre'] }}</td>
+                    <td>{{ proceso['prioridad'] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 
-    <script>
-        const socket = io();
+    <div class="nucleo">
+        <h2>Núcleo 2</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>PID</th>
+                    <th>Nombre</th>
+                    <th>Prioridad</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for proceso in procesos_nucleo[2] %}
+                <tr>
+                    <td>{{ proceso['pid'] }}</td>
+                    <td>{{ proceso['nombre'] }}</td>
+                    <td>{{ proceso['prioridad'] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 
-        socket.on('proceso_nuevo', function (procesos) {
-            console.log('Nuevo proceso recibido:', procesos);
-            const cuerpoTabla = document.getElementById('tabla-procesos').querySelector('tbody');
-            procesos.forEach(proceso => {
-                const fila = document.createElement('tr');
-                fila.id = `fila-${proceso.pid}`;
-                fila.innerHTML = `
-                    <td>${proceso.pid}</td>
-                    <td>${proceso.nombre}</td>
-                    <td>${proceso.hora_inicio}</td>
-                    <td id="prioridad-${proceso.pid}">${proceso.prioridad}</td>
-                    <td>
-                        <button onclick="cambiarPrioridad(${proceso.pid}, -1)">-</button>
-                        <button onclick="cambiarPrioridad(${proceso.pid}, 1)">+</button>
-                        <button onclick="eliminarProceso(${proceso.pid})">Eliminar</button>
-                    </td>
-                `;
-                cuerpoTabla.appendChild(fila);
-            });
-        });
+    <div class="nucleo">
+        <h2>Núcleo 3</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>PID</th>
+                    <th>Nombre</th>
+                    <th>Prioridad</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for proceso in procesos_nucleo[3] %}
+                <tr>
+                    <td>{{ proceso['pid'] }}</td>
+                    <td>{{ proceso['nombre'] }}</td>
+                    <td>{{ proceso['prioridad'] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 
-        function cambiarPrioridad(pid, delta) {
-            const prioridadActual = parseInt(document.getElementById(`prioridad-${pid}`).innerText);
-            const nuevaPrioridad = Math.max(0, Math.min(10, prioridadActual + delta)); 
-
-            socket.emit('cambiar_prioridad', { pid: pid, prioridad: nuevaPrioridad });
-        }
-
-        function eliminarProceso(pid) {
-            socket.emit('eliminar_proceso', { pid: pid });
-        }
-
-        socket.on('prioridad_cambiada', function (datos) {
-            const { pid, nueva_prioridad } = datos;
-            const celdaPrioridad = document.getElementById(`prioridad-${pid}`);
-            if (celdaPrioridad) {
-                celdaPrioridad.innerText = nueva_prioridad;
-            }
-        });
-
-        socket.on('proceso_eliminado', function (datos) {
-            const pid = datos.pid;
-            const fila = document.getElementById(`fila-${pid}`);
-            if (fila) {
-                fila.remove();
-            }
-        });
-
-        socket.on('error', function (datos) {
-            console.error("¡Ups! Algo salió mal:", datos);
-        });
-    </script>
+    <div class="nucleo">
+        <h2>Núcleo 4</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>PID</th>
+                    <th>Nombre</th>
+                    <th>Prioridad</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for proceso in procesos_nucleo[4] %}
+                <tr>
+                    <td>{{ proceso['pid'] }}</td>
+                    <td>{{ proceso['nombre'] }}</td>
+                    <td>{{ proceso['prioridad'] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <br>
+    <a href="/">Volver a Inicio</a>
 </body>
 </html>
