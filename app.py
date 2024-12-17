@@ -4,17 +4,20 @@ from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import psutil
 import random
+import time
+from threading import Thread
+import os
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///procesos.db'
+db_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'instance', 'procesos.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
 db = SQLAlchemy(app)
 socketio = SocketIO(app)
 
-# Diccionario global para almacenar las prioridades de los procesos del sistema
 prioridades_procesos = {}
 
-# Tabla de la base de datos
 class Proceso(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     nombre = db.Column(db.String(50), nullable=False)
@@ -33,44 +36,60 @@ class Proceso(db.Model):
             'cpu_asignado': self.cpu_asignado
         }
 
-# Crear la base de datos
 with app.app_context():
     db.create_all()
 
+def insertar_procesos_en_bd():
+    while True:
+        with app.app_context():
+            for proc in psutil.process_iter(attrs=["pid", "name"]):
+                try:
+                    pid = proc.info["pid"]
+                    nombre = proc.info["name"]
+                    proceso_existente = Proceso.query.filter_by(id=pid).first()
+                    if not proceso_existente:
+                        prioridad = random.randint(0, 10)
+                        cpu_asignado = asignar_cpu(prioridad)
+                        hora_inicio = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+                        nuevo_proceso = Proceso(
+                            id=pid,
+                            nombre=nombre,
+                            prioridad=prioridad,
+                            hora_inicio=hora_inicio,
+                            cpu_asignado=cpu_asignado
+                        )
+                        db.session.add(nuevo_proceso)
+                        db.session.commit()
+
+                        socketio.emit('proceso_nuevo', nuevo_proceso.to_dict())
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                    continue
+        time.sleep(5)
+
+
+thread = Thread(target=insertar_procesos_en_bd)
+thread.daemon = True
+thread.start()
+
 @app.route('/')
 def inicio():
-    procesos_nucleo = {1: [], 2: [], 3: [], 4: []}  # Procesos organizados por núcleo
-
-    # Obtener todos los procesos del sistema usando psutil
-    for proc in psutil.process_iter(attrs=["pid", "name"]):
-        try:
-            pid = proc.info["pid"]
-            nombre = proc.info["name"]
-
-            # Asignar una prioridad aleatoria si el proceso no está en prioridades_procesos
-            if pid not in prioridades_procesos:
-                prioridades_procesos[pid] = random.randint(0, 10)
-
-            prioridad = prioridades_procesos[pid]
-
-            proceso = {
-                "pid": pid,
-                "nombre": nombre,
-                "prioridad": prioridad
-            }
-
-            # Clasificar los procesos en los núcleos según su prioridad
-            if prioridad >= 8:
-                procesos_nucleo[1].append(proceso)
-            elif 5 < prioridad < 8:
-                procesos_nucleo[2].append(proceso)
-            elif 2 < prioridad <= 5:
-                procesos_nucleo[3].append(proceso)
-            else:
-                procesos_nucleo[4].append(proceso)
-
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            continue
+    procesos_nucleo = {1: [], 2: [], 3: [], 4: []}
+    procesos_db = Proceso.query.all()
+    for proceso in procesos_db:
+        proceso_dict = {
+            "pid": proceso.id,
+            "nombre": proceso.nombre,
+            "prioridad": proceso.prioridad
+        }
+        if proceso.cpu_asignado == 1:
+            procesos_nucleo[1].append(proceso_dict)
+        elif proceso.cpu_asignado == 2:
+            procesos_nucleo[2].append(proceso_dict)
+        elif proceso.cpu_asignado == 3:
+            procesos_nucleo[3].append(proceso_dict)
+        else:
+            procesos_nucleo[4].append(proceso_dict)
 
     return render_template('index.html', procesos_nucleo=procesos_nucleo)
 
