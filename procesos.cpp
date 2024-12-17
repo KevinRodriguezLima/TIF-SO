@@ -3,21 +3,21 @@
 #include <cstdlib>
 
 int main() {
-    const std::string ruta_archivo = "/home/kiwi/Documents/garbage/procesos.txt";
-
+    const std::string ruta_archivo = "/var/log/procesos_inicio.txt";
     std::ofstream archivo(ruta_archivo);
-    if (archivo.is_open()) {
-        archivo << "Lista de procesos activos:\n";
-        archivo << "==========================\n";
 
-        int resultado = system(("ps aux >> " + ruta_archivo).c_str());
-        
-        if (resultado == 0) {
-            std::cout << "si";
-        }
+    archivo << "Lista de procesos activos al arranque:\n";
+    archivo << "======================================\n";
 
-        archivo.close();
-    }   
+    FILE* pipe = popen("ps aux", "r");
+
+    char buffer[256];
+    while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+        archivo << buffer; 
+    }
+
+    pclose(pipe);
+    archivo.close();
 
     return 0;
 }
