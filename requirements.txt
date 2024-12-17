@@ -4,4 +4,4 @@ psutil
 python-socketio
 eventlet
 sqlalchemy
-
+Flask-SQLAlchemy

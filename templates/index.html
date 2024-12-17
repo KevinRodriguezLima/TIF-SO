@@ -40,6 +40,21 @@
             color: white;
         }
 
+        .cpu-button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        .cpu-button.inactivo {
+            background-color: #6c757d;
+        }
+
         .intro {
             margin-top: 80px;
             padding: 20px;
@@ -86,8 +101,34 @@
         .nucleo {
             border: 1px solid #ddd;
             border-radius: 5px;
+            padding: 10px;
             overflow: auto;
-            height: 300px;
+            height: 350px;
+        }
+
+        .botones-nucleo {
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-around;
+        }
+
+        .botones-nucleo button {
+            padding: 5px 10px;
+            background-color: white;
+            color: black;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .botones-nucleo button.activo {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .botones-nucleo button:hover {
+            background-color: #218838;
         }
 
         table {
@@ -119,33 +160,37 @@
 
     <div class="intro">
         <h1>Monitoreo de Procesos</h1>
-        <p>Los procesos están organizados por núcleos según su prioridad. Usa los botones para crear un proceso o ver detalles de un núcleo específico.</p>
-        <div class="nucleo-navigation">
-            <button onclick="window.location.href='/nucleo/1'">Ver Núcleo 1</button>
-            <button onclick="window.location.href='/nucleo/2'">Ver Núcleo 2</button>
-            <button onclick="window.location.href='/nucleo/3'">Ver Núcleo 3</button>
-            <button onclick="window.location.href='/nucleo/4'">Ver Núcleo 4</button>
-        </div>
+        <button class="cpu-button" id="cpu-toggle" onclick="toggleCPU()">
+            {{ 'Detener CPU' if cpu_activo else 'Iniciar CPU' }}
+        </button>
     </div>
 
     <div class="container">
         <!-- Núcleo 1 -->
         <div class="nucleo">
             <h2>Núcleo 1</h2>
+            <div class="botones-nucleo" id="botones-1">
+                <button onclick="seleccionarAlgoritmo('RR', 1, this)">Round Robin</button>
+                <button onclick="seleccionarAlgoritmo('FCFS', 1, this)">FCFS</button>
+                <button onclick="seleccionarAlgoritmo('SJF', 1, this)">SJF</button>
+                <button onclick="insertarProcesos(1)">Insertar Procesos</button>
+            </div>
             <table>
                 <thead>
                     <tr>
                         <th>PID</th>
                         <th>Nombre</th>
                         <th>Prioridad</th>
+                        <th>Tiempo Restante</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="nucleo-1">
                     {% for proceso in procesos_nucleo[1] %}
                     <tr>
                         <td>{{ proceso['pid'] }}</td>
                         <td>{{ proceso['nombre'] }}</td>
                         <td>{{ proceso['prioridad'] }}</td>
+                        <td>{{ proceso['tiempo_restante'] }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -155,20 +200,28 @@
         <!-- Núcleo 2 -->
         <div class="nucleo">
             <h2>Núcleo 2</h2>
+            <div class="botones-nucleo" id="botones-2">
+                <button onclick="seleccionarAlgoritmo('RR', 2, this)">Round Robin</button>
+                <button onclick="seleccionarAlgoritmo('FCFS', 2, this)">FCFS</button>
+                <button onclick="seleccionarAlgoritmo('SJF', 2, this)">SJF</button>
+                <button onclick="insertarProcesos(2)">Insertar Procesos</button>
+            </div>
             <table>
                 <thead>
                     <tr>
                         <th>PID</th>
                         <th>Nombre</th>
                         <th>Prioridad</th>
+                        <th>Tiempo Restante</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="nucleo-2">
                     {% for proceso in procesos_nucleo[2] %}
                     <tr>
                         <td>{{ proceso['pid'] }}</td>
                         <td>{{ proceso['nombre'] }}</td>
                         <td>{{ proceso['prioridad'] }}</td>
+                        <td>{{ proceso['tiempo_restante'] }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -178,20 +231,28 @@
         <!-- Núcleo 3 -->
         <div class="nucleo">
             <h2>Núcleo 3</h2>
+            <div class="botones-nucleo" id="botones-3">
+                <button onclick="seleccionarAlgoritmo('RR', 3, this)">Round Robin</button>
+                <button onclick="seleccionarAlgoritmo('FCFS', 3, this)">FCFS</button>
+                <button onclick="seleccionarAlgoritmo('SJF', 3, this)">SJF</button>
+                <button onclick="insertarProcesos(3)">Insertar Procesos</button>
+            </div>
             <table>
                 <thead>
                     <tr>
                         <th>PID</th>
                         <th>Nombre</th>
                         <th>Prioridad</th>
+                        <th>Tiempo Restante</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="nucleo-3">
                     {% for proceso in procesos_nucleo[3] %}
                     <tr>
                         <td>{{ proceso['pid'] }}</td>
                         <td>{{ proceso['nombre'] }}</td>
                         <td>{{ proceso['prioridad'] }}</td>
+                        <td>{{ proceso['tiempo_restante'] }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -201,25 +262,92 @@
         <!-- Núcleo 4 -->
         <div class="nucleo">
             <h2>Núcleo 4</h2>
+            <div class="botones-nucleo" id="botones-4">
+                <button onclick="seleccionarAlgoritmo('RR', 4, this)">Round Robin</button>
+                <button onclick="seleccionarAlgoritmo('FCFS', 4, this)">FCFS</button>
+                <button onclick="seleccionarAlgoritmo('SJF', 4, this)">SJF</button>
+                <button onclick="insertarProcesos(4)">Insertar Procesos</button>
+            </div>
             <table>
                 <thead>
                     <tr>
                         <th>PID</th>
                         <th>Nombre</th>
                         <th>Prioridad</th>
+                        <th>Tiempo Restante</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="nucleo-4">
                     {% for proceso in procesos_nucleo[4] %}
                     <tr>
                         <td>{{ proceso['pid'] }}</td>
                         <td>{{ proceso['nombre'] }}</td>
                         <td>{{ proceso['prioridad'] }}</td>
+                        <td>{{ proceso['tiempo_restante'] }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
+
+    <div class="finalizados">
+        <h2>Procesos Finalizados</h2>
+        <table id="tabla-finalizados">
+            <thead>
+                <tr>
+                    <th>PID</th>
+                    <th>Nombre</th>
+                    <th>Prioridad</th>
+                    <th>Tiempo Final</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for proceso in procesos_terminados %}
+                <tr>
+                    <td>{{ proceso['id'] }}</td>
+                    <td>{{ proceso['nombre'] }}</td>
+                    <td>{{ proceso['prioridad'] }}</td>
+                    <td>{{ proceso['hora_inicio'] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <button onclick="descargarFinalizados()" style="background-color: red; color: white; border: none; padding: 10px;">
+            Limpiar Procesos Finalizados
+        </button>
+    </div>
+
+    <script>
+        const socket = io();
+    
+        function toggleCPU() {
+            fetch('/toggle_cpu', { method: 'POST' });
+        }
+    
+        socket.on('cpu_estado', function (data) {
+            const boton = document.getElementById("cpu-toggle");
+            boton.textContent = data.activo ? "Detener CPU" : "Iniciar CPU";
+            boton.classList.toggle("inactivo", !data.activo);
+        });
+    
+        // Actualiza las tablas de cada núcleo en tiempo real
+        socket.on('estado_actualizado', function (data) {
+            const tbody = document.getElementById(`nucleo-${data.cpu_id}`);
+            tbody.innerHTML = data.subcola.map(proceso => `
+                <tr>
+                    <td>${proceso.id}</td>
+                    <td>${proceso.nombre}</td>
+                    <td>${proceso.prioridad}</td>
+                    <td>${proceso.tiempo_restante}</td>
+                </tr>
+            `).join('');
+        });
+    
+        // Limpia procesos finalizados
+        socket.on('procesos_limpiados', function () {
+            document.getElementById('tabla-finalizados').innerHTML = '';
+        });
+    </script>
 </body>
 </html>
