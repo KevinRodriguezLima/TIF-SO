@@ -12,16 +12,17 @@ serie de comando para que se pueda recuperar los procesos de arranque de la pc/l
 4) luego esto -> sudo chmod +x /usr/local/bin/procesos
 5) luego esto para crear el autoejecutable -> sudo nano /etc/systemd/system/procesos.service
 6) dentro del archivo creado va el siguiente codigo :  
-[Unit]
-Description=procesos arranque 
-After=multi-user.target
+    [Unit]
+    Description=procesos arranque 
+    After=multi-user.target
 
-[Service]
-ExecStart=/usr/local/bin/procesos.sh
-Type=oneshot
+    [Service]
+    ExecStart=/usr/local/bin/procesos.sh
+    Type=oneshot
 
-[Install]
-WantedBy=multi-user.target
+    [Install]
+    WantedBy=multi-user.target
+
 7) luego de eso ejecutar esto -> sudo systemctl daemon-reload
 8) luego esto -> sudo systemctl enable procesos.service
 
