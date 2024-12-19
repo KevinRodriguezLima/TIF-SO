@@ -74,7 +74,6 @@
                 <th>Dirección Base</th>
                 <th>Información E/S</th>
                 <th>Tiempo</th>
-                <th>Hora de Llegada</th>
                 <th>Código</th>
                 <th>Acciones</th>
             </tr>
@@ -91,7 +90,6 @@
                 <td>{{ proceso.direccion_base or "N/A" }}</td>
                 <td>{{ proceso.info_entrada_salida or "N/A" }}</td>
                 <td>{{ proceso.tiempo or "N/A" }}</td>
-                <td>{{ proceso.hora_llegada or "N/A" }}</td>
                 <td>{{ proceso.codigo or "N/A" }}</td>
                 <td>
                     <button onclick="cambiarPrioridad({{ proceso.id }}, -1)">-</button>
