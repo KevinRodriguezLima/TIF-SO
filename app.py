@@ -2,12 +2,13 @@ from flask import Flask, render_template, request, redirect
 from flask_socketio import SocketIO
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import scoped_session, sessionmaker
-from datetime import datetime
+from datetime import datetime, timedelta
 import psutil
 import random
 import time
 from threading import Thread, Lock
 import os
+from faker import Faker 
 
 app = Flask(__name__)
 db_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'instance', 'procesos.db')
@@ -43,16 +44,34 @@ class Proceso(db.Model):
     hora_inicio = db.Column(db.String(50), nullable=False)
     tiempo_restante = db.Column(db.Integer, nullable=False)
     cpu_asignado = db.Column(db.Integer, nullable=True)
+    
+    # Nuevos campos
+    estado = db.Column(db.String(50), default="En ejecución")  # Estado del proceso
+    contador_programa = db.Column(db.Integer, default=0)  # Contador de programa (PC)
+    direccion_base = db.Column(db.Integer, default=0x1000)  # Dirección base ficticia
+    info_entrada_salida = db.Column(db.String(50), default="Pendiente")  # Información E/S
+    tiempo = db.Column(db.Float, default=3.5)  # Tiempo ficticio en segundos
+    hora_llegada = db.Column(db.String(50), default=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))  # Hora de llegada
+    codigo = db.Column(db.String(50), default="0xABC123")  # Código ficticio
 
     def to_dict(self):
         return {
-            'id': self.id,
-            'nombre': self.nombre,
-            'prioridad': self.prioridad,
-            'hora_inicio': self.hora_inicio,
-            'tiempo_restante': self.tiempo_restante,
-            'cpu_asignado': self.cpu_asignado
-        }
+        'id': self.id,
+        'nombre': self.nombre,
+        'hora_inicio': self.hora_inicio,
+        'prioridad': self.prioridad,
+        'tiempo_restante': self.tiempo_restante,
+        'cpu_asignado': self.cpu_asignado,
+        'estado': self.estado,
+        'contador_programa': self.contador_programa,
+        'direccion_base': self.direccion_base,  # No convertimos a hexadecimal, solo devolvemos la cadena
+        'info_entrada_salida': self.info_entrada_salida,
+        'tiempo': self.tiempo,
+        'hora_llegada': self.hora_llegada,
+        'codigo': self.codigo
+    }
+
+
 
 def insertar_procesos_en_bd():
     while True:
@@ -64,28 +83,52 @@ def insertar_procesos_en_bd():
                     nombre = proc.info["name"]
                     proceso_existente = session.query(Proceso).filter_by(id=pid).first()
                     if not proceso_existente:
-                        prioridad = random.randint(0, 10)
-                        tiempo_restante = random.randint(5, 15)
-                        cpu_asignado = asignar_cpu(prioridad)
-                        hora_inicio = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        # Generar datos ficticios para todas las columnas
+                        prioridad = random.randint(1, 10)  # Prioridad entre 1 y 10
+                        tiempo_restante = random.randint(5, 15)  # Tiempo restante en segundos
+                        cpu_asignado = asignar_cpu(prioridad)  # Asignar CPU en base a la prioridad
+                        hora_inicio = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Hora actual
 
+                        # Datos adicionales asegurados
+                        estado = random.choice(["En ejecución", "Terminado", "Esperando E/S"])
+                        contador_programa = random.randint(1000, 9999)  # Contador de programa aleatorio
+                        direccion_base = f"0x{random.randint(0x1000, 0xFFFF):X}"  # Dirección base en hexadecimal
+                        info_entrada_salida = random.choice(["Pendiente", "Lectura de disco", "Espera de archivo"])
+                        tiempo = round(random.uniform(1.0, 5.0), 2)  # Tiempo ficticio en segundos
+                        hora_llegada = (datetime.now() - timedelta(seconds=random.randint(0, 3600))).strftime('%Y-%m-%d %H:%M:%S')
+                        codigo = f"0x{random.randint(0x100000, 0xFFFFFF):X}"  # Código hexadecimal ficticio
+
+                        # Crear un nuevo proceso con datos completos
                         nuevo_proceso = Proceso(
                             id=pid,
                             nombre=nombre,
                             prioridad=prioridad,
                             hora_inicio=hora_inicio,
                             tiempo_restante=tiempo_restante,
-                            cpu_asignado=cpu_asignado
+                            cpu_asignado=cpu_asignado,
+                            estado=estado,
+                            contador_programa=contador_programa,
+                            direccion_base=direccion_base,
+                            info_entrada_salida=info_entrada_salida,
+                            tiempo=tiempo,
+                            hora_llegada=hora_llegada,
+                            codigo=codigo
                         )
+
+                        # Guardar el proceso
                         session.add(nuevo_proceso)
                         session.commit()
+
+                        # Emitir al frontend
                         subcolas[cpu_asignado].append(nuevo_proceso)
                         socketio.emit('proceso_nuevo', nuevo_proceso.to_dict())
+
                 except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                     continue
         finally:
             session.close()
         time.sleep(5)
+
 
 def ordenar_fcfs(subcola):
     subcola.sort(key=lambda p: datetime.strptime(p.hora_inicio, '%Y-%m-%d %H:%M:%S'))
@@ -192,6 +235,9 @@ def worker_general(cpu_id):
             finally:
                 session.close()
         time.sleep(0.1)
+
+
+
 
 def asignar_cpu(prioridad):
     if prioridad >= 8:
