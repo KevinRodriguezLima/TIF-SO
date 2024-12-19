@@ -8,6 +8,8 @@ import random
 import time
 from threading import Thread, Lock
 import os
+from faker import Faker 
+from flask_migrate import Migrate
 
 app = Flask(__name__)
 db_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'instance', 'procesos.db')
@@ -16,6 +18,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 socketio = SocketIO(app)
+migrate = Migrate(app, db)
 
 SessionFactory = None
 
@@ -43,31 +46,64 @@ class Proceso(db.Model):
     hora_inicio = db.Column(db.String(50), nullable=False)
     tiempo_restante = db.Column(db.Integer, nullable=False)
     cpu_asignado = db.Column(db.Integer, nullable=True)
+    estado = db.Column(db.String(50), default="En ejecución")
+    contador_programa = db.Column(db.Integer, default=0)
+    direccion_base = db.Column(db.Integer, default=0x1000)
+    info_entrada_salida = db.Column(db.String(50), default="Pendiente")
+    tiempo = db.Column(db.Float, default=3.5)
+    codigo = db.Column(db.String(50), default="0xABC123")
 
     def to_dict(self):
         return {
-            'id': self.id,
-            'nombre': self.nombre,
-            'prioridad': self.prioridad,
-            'hora_inicio': self.hora_inicio,
-            'tiempo_restante': self.tiempo_restante,
-            'cpu_asignado': self.cpu_asignado
-        }
+                    'id': self.id,
+        'nombre': self.nombre,
+        'hora_inicio': self.hora_inicio,
+        'prioridad': self.prioridad,
+        'tiempo_restante': self.tiempo_restante,
+        'cpu_asignado': self.cpu_asignado,
+        'estado': self.estado,
+        'contador_programa': self.contador_programa,
+        'direccion_base': self.direccion_base, 
+        'info_entrada_salida': self.info_entrada_salida,
+        'tiempo': self.tiempo,
+        'codigo': self.codigo
+    }
 
 def insertar_procesos_en_bd():
     while True:
         session = SessionFactory()
         try:
-            for proc in psutil.process_iter(attrs=["pid", "name"]):
+            for proc in psutil.process_iter(attrs=["pid", "name", "status"]):
                 try:
                     pid = proc.info["pid"]
                     nombre = proc.info["name"]
+                                        estado_real = proc.info["status"]
+                    
+                    if estado_real not in [psutil.STATUS_RUNNING, psutil.STATUS_SLEEPING, psutil.STATUS_STOPPED, psutil.STATUS_ZOMBIE]:
+                        continue  
+                    
+                    if estado_real == psutil.STATUS_RUNNING:
+                        estado = "En ejecución"
+                    elif estado_real == psutil.STATUS_SLEEPING:
+                        estado = "Dormido"
+                    elif estado_real == psutil.STATUS_STOPPED:
+                        estado = "Detenido"
+                    elif estado_real == psutil.STATUS_ZOMBIE:
+                        estado = "Zombie"
+                    else:
+                        estado = "Desconocido" 
+                    info_entrada_salida = "Pendiente" 
+
                     proceso_existente = session.query(Proceso).filter_by(id=pid).first()
                     if not proceso_existente:
-                        prioridad = random.randint(0, 10)
+                        prioridad = random.randint(1, 10)
                         tiempo_restante = random.randint(5, 15)
                         cpu_asignado = asignar_cpu(prioridad)
                         hora_inicio = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        contador_programa = random.randint(1000, 9999)
+                        direccion_base = f"0x{random.randint(0x1000, 0xFFFF):X}"
+                        tiempo = round(random.uniform(1.0, 5.0), 2)
+                        codigo = f"0x{random.randint(0x100000, 0xFFFFFF):X}"
 
                         nuevo_proceso = Proceso(
                             id=pid,
@@ -75,7 +111,13 @@ def insertar_procesos_en_bd():
                             prioridad=prioridad,
                             hora_inicio=hora_inicio,
                             tiempo_restante=tiempo_restante,
-                            cpu_asignado=cpu_asignado
+                            cpu_asignado=cpu_asignado,
+                            estado=estado,  
+                            contador_programa=contador_programa,
+                            direccion_base=direccion_base,
+                            info_entrada_salida=info_entrada_salida,  
+                            tiempo=tiempo,
+                            codigo=codigo
                         )
                         session.add(nuevo_proceso)
                         session.commit()
@@ -214,7 +256,12 @@ def inicio():
     session = SessionFactory()
     try:
         for proceso in session.query(Proceso).all():
-            procesos_nucleo[proceso.cpu_asignado].append(proceso.to_dict())
+            proceso_dict = proceso.to_dict()
+            
+            for key in ['estado', 'contador_programa', 'direccion_base', 'info_entrada_salida', 'tiempo', 'hora_llegada', 'codigo']:
+                if proceso_dict.get(key) is None:  
+                    proceso_dict[key] = "N/A" 
+            procesos_nucleo[proceso.cpu_asignado].append(proceso_dict)
     finally:
         session.close()
     return render_template('index.html', procesos_nucleo=procesos_nucleo, procesos_terminados=procesos_terminados)
