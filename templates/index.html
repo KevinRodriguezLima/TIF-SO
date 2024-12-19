@@ -136,6 +136,26 @@
             font-weight: bold;
         }
 
+        .proceso-ejecutando {
+            background-color: #f0f8ff;
+            font-weight: bold;
+            color: #007BFF;
+        }
+
+        .ejecucion-animada {
+            animation: parpadeo 1s infinite;
+            font-size: 1.2em;
+        }
+
+        @keyframes parpadeo {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0;
+            }
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
@@ -186,7 +206,7 @@
                 <button onclick="seleccionarAlgoritmo('FCFS', {{ cpu_id }}, this)">FCFS</button>
                 <button onclick="seleccionarAlgoritmo('SJF', {{ cpu_id }}, this)">SJF</button>
                 <button class="insertar" onclick="insertarProcesos({{ cpu_id }})">Insertar Procesos</button>
-            </div>
+            </div>            
 
             <!-- Controles Quantum -->
             <div class="quantum-control" id="quantum-control-{{ cpu_id }}">
@@ -212,9 +232,12 @@
                 </thead>
                 <tbody id="nucleo-{{ cpu_id }}">
                     {% for proceso in procesos_nucleo[cpu_id] %}
-                    <tr data-id="{{ proceso['id'] }}">
+                    <tr data-id="{{ proceso['id'] }}" class="proceso-ejecutando">
                         <td>{{ proceso['id'] }}</td>
-                        <td>{{ proceso['nombre'] }}</td>
+                        <td>
+                            {{ proceso['nombre'] }}
+                            <span class="ejecucion-animada">▶</span>
+                        </td>
                         <td>{{ proceso['prioridad'] }}</td>
                         <td class="tiempo-restante">{{ proceso['tiempo_restante'] }}</td>
                     </tr>
@@ -258,30 +281,19 @@
         function toggleCPU() {
             fetch('/toggle_cpu', { method: 'POST' });
         }
-    
-        socket.on('algoritmo_cambiado', function(data) {
-            const { cpu_id, algoritmo } = data;
-            const botones = document.querySelectorAll(`#botones-${cpu_id} button`);
-            botones.forEach(btn => {
-                if (btn.textContent === algoritmo) {
-                    btn.classList.add('activo');
-                } else {
-                    btn.classList.remove('activo');
-                }
-            });
-        });
 
+        // Recibir estado de CPU
         socket.on('cpu_estado', function (data) {
             const boton = document.getElementById("cpu-toggle");
             boton.textContent = data.activo ? "Detener CPU" : "Iniciar CPU";
             boton.classList.toggle("inactivo", !data.activo);
         });
-    
-        // Actualiza las tablas de cada núcleo en tiempo real
+
+        // Actualizar tablas según el estado de las subcolas
         socket.on('estado_actualizado', function (data) {
             const tbody = document.getElementById(`nucleo-${data.cpu_id}`);
             tbody.innerHTML = data.subcola.map(proceso => `
-                <tr>
+                <tr data-id="${proceso.id}">
                     <td>${proceso.id}</td>
                     <td>${proceso.nombre}</td>
                     <td>${proceso.prioridad}</td>
@@ -295,42 +307,60 @@
             document.getElementById('tabla-finalizados').innerHTML = '';
         }); 
 
-        socket.on('proceso_ejecutandose', function(data) {
+        // Marcar proceso en ejecución
+        socket.on('proceso_ejecutandose', function (data) {
             const { cpu_id, proceso_id } = data;
 
-            // Eliminar sombreado previo
+            // Limpiar marcas previas
             document.querySelectorAll(`#nucleo-${cpu_id} tr`).forEach(row => {
-                row.classList.remove('ejecutando');
+                row.classList.remove('proceso-ejecutando');
             });
 
-            // Sombrear el proceso actual
+            // Marcar el proceso actual
             const procesoRow = document.querySelector(`#nucleo-${cpu_id} tr[data-id="${proceso_id}"]`);
             if (procesoRow) {
-                procesoRow.classList.add('ejecutando');
+                procesoRow.classList.add('proceso-ejecutando');
             }
         });
 
         // Actualizar el tiempo restante
         socket.on('actualizar_tiempo', function(data) {
             const { cpu_id, proceso_id, tiempo_restante } = data;
-
             const procesoRow = document.querySelector(`#nucleo-${cpu_id} tr[data-id="${proceso_id}"]`);
+            
             if (procesoRow) {
                 const tiempoRestanteCell = procesoRow.querySelector('.tiempo-restante');
                 tiempoRestanteCell.textContent = tiempo_restante;
             }
         });
 
-        socket.on('estado_actualizado', function(data) {
+        socket.on('estado_actualizado', function (data) {
             const tbody = document.getElementById(`nucleo-${data.cpu_id}`);
             tbody.innerHTML = data.subcola.map(proceso => `
-                <tr>
+                <tr data-id="${proceso.id}">
                     <td>${proceso.id}</td>
                     <td>${proceso.nombre}</td>
                     <td>${proceso.prioridad}</td>
                     <td>${proceso.tiempo_restante}</td>
                 </tr>
             `).join('');
+        });
+
+        socket.on('proceso_finalizado', function(data) {
+            const tbody = document.getElementById('tabla-finalizados').querySelector('tbody');
+            tbody.innerHTML += `
+                <tr>
+                    <td>${data.id}</td>
+                    <td>${data.nombre}</td>
+                    <td>${data.prioridad}</td>
+                    <td>${data.hora_inicio}</td>
+                </tr>
+            `;
+            // Eliminar el proceso de la subcola
+            const procesoRow = document.querySelector(`#nucleo-${data.cpu_asignado} tr[data-id="${data.id}"]`);
+            if (procesoRow) {
+                procesoRow.remove();
+            }
         });
 
         function seleccionarAlgoritmo(algoritmo, nucleo, boton) {
@@ -340,20 +370,24 @@
                 body: `cpu_id=${nucleo}&algoritmo=${algoritmo}`
             });
 
+            // Actualizar visualmente los botones
             const botones = document.querySelectorAll(`#botones-${nucleo} button`);
-            botones.forEach(btn => {
-                if (!btn.textContent.includes('Insertar Procesos')) {
-                    btn.classList.remove('activo');
-                }
-            });
-
+            botones.forEach(btn => btn.classList.remove('activo'));
             boton.classList.add('activo');
         }
 
+        // Escuchar cambios de algoritmo desde el servidor
+        socket.on('algoritmo_cambiado', function(data) {
+            const { cpu_id, algoritmo } = data;
+            const botones = document.querySelectorAll(`#botones-${cpu_id} button`);
+            botones.forEach(btn => {
+                btn.classList.toggle('activo', btn.textContent === algoritmo);
+            });
+        });
 
         function cambiarQuantum(cpu_id) {
             const quantum = document.getElementById(`quantum-${cpu_id}`).value;
-            const duracionReal = document.getElementById('duracion-real').value;
+            const duracionReal = document.getElementById(`duracion-real-${cpu_id}`).value;
 
             fetch('/cambiar_quantum', {
                 method: 'POST',
@@ -362,28 +396,7 @@
             });
         }
 
-
-        setInterval(() => {
-            const scrollPositions = {};
-            document.querySelectorAll('.nucleo tbody').forEach((tbody, index) => {
-                scrollPositions[index] = tbody.scrollTop;
-            });
-
-            fetch('/')
-                .then(response => response.text())
-                .then(html => {
-                    document.body.innerHTML = html;
-
-                    // Restaurar las posiciones de desplazamiento
-                    document.querySelectorAll('.nucleo tbody').forEach((tbody, index) => {
-                        if (scrollPositions[index] !== undefined) {
-                            tbody.scrollTop = scrollPositions[index];
-                        }
-                    });
-                });
-        }, 2000);
-
-        // Inicialización al cargar la página: RR activo y "Insertar Procesos" siempre verde
+        // Inicializa el estado de los botones al cargar la página
         window.onload = function () {
             [1, 2, 3, 4].forEach(nucleo => {
                 const botones = document.querySelectorAll(`#botones-${nucleo} button`);

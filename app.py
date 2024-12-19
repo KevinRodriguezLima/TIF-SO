@@ -99,27 +99,51 @@ def worker_general(cpu_id):
             session = SessionFactory()
             try:
                 with lock:
-                    if algoritmos[cpu_id] == "FCFS":
-                        ordenar_fcfs(subcolas[cpu_id])
-                    elif algoritmos[cpu_id] == "SJF":
-                        ordenar_sjf(subcolas[cpu_id])
-
+                    # Reasignar el proceso dentro de una sesión activa
                     proceso = subcolas[cpu_id][0]
                     proceso_db = session.query(Proceso).filter_by(id=proceso.id).first()
 
                     if not proceso_db:
+                        # Si el proceso no existe en la base de datos, eliminarlo de la subcola
+                        subcolas[cpu_id].pop(0)
                         continue
 
-                    quantum_lógico = min(quantum_por_nucleo[cpu_id], proceso_db.tiempo_restante)
-                    tiempo_real = quantum_lógico * quantum_unidad_real
+                    if algoritmos[cpu_id] == "RR":
+                        # Round Robin
+                        quantum_lógico = min(quantum_por_nucleo[cpu_id], proceso_db.tiempo_restante)
+                        socketio.emit('proceso_ejecutandose', {
+                            'cpu_id': cpu_id,
+                            'proceso_id': proceso_db.id
+                        })
 
-                    socketio.emit('proceso_ejecutandose', {
-                        'cpu_id': cpu_id,
-                        'proceso_id': proceso_db.id
-                    })
+                        for _ in range(quantum_lógico):
+                            if proceso_db.tiempo_restante > 0:
+                                proceso_db.tiempo_restante -= 1
+                                session.commit()
+                                socketio.emit('actualizar_tiempo', {
+                                    'cpu_id': cpu_id,
+                                    'proceso_id': proceso_db.id,
+                                    'tiempo_restante': proceso_db.tiempo_restante
+                                })
+                                time.sleep(quantum_unidad_real)
 
-                    for _ in range(quantum_lógico):
                         if proceso_db.tiempo_restante > 0:
+                            subcolas[cpu_id].append(subcolas[cpu_id].pop(0))
+                        else:
+                            procesos_terminados.append(proceso_db.to_dict())
+                            session.delete(proceso_db)
+                            session.commit()
+                            subcolas[cpu_id].pop(0)
+
+                    elif algoritmos[cpu_id] == "SJF":
+                        # Shortest Job First
+                        ordenar_sjf(subcolas[cpu_id])
+                        socketio.emit('proceso_ejecutandose', {
+                            'cpu_id': cpu_id,
+                            'proceso_id': proceso_db.id
+                        })
+
+                        while proceso_db.tiempo_restante > 0:
                             proceso_db.tiempo_restante -= 1
                             session.commit()
                             socketio.emit('actualizar_tiempo', {
@@ -129,18 +153,40 @@ def worker_general(cpu_id):
                             })
                             time.sleep(quantum_unidad_real)
 
-                    if proceso_db.tiempo_restante <= 0:
                         procesos_terminados.append(proceso_db.to_dict())
                         session.delete(proceso_db)
+                        session.commit()
                         subcolas[cpu_id].pop(0)
-                    elif algoritmos[cpu_id] == "RR":
-                        subcolas[cpu_id].append(subcolas[cpu_id].pop(0))
 
-                    session.commit()
+                    elif algoritmos[cpu_id] == "FCFS":
+                        # First Come First Serve
+                        ordenar_fcfs(subcolas[cpu_id])
+                        socketio.emit('proceso_ejecutandose', {
+                            'cpu_id': cpu_id,
+                            'proceso_id': proceso_db.id
+                        })
+
+                        while proceso_db.tiempo_restante > 0:
+                            proceso_db.tiempo_restante -= 1
+                            session.commit()
+                            socketio.emit('actualizar_tiempo', {
+                                'cpu_id': cpu_id,
+                                'proceso_id': proceso_db.id,
+                                'tiempo_restante': proceso_db.tiempo_restante
+                            })
+                            time.sleep(quantum_unidad_real)
+
+                        procesos_terminados.append(proceso_db.to_dict())
+                        session.delete(proceso_db)
+                        session.commit()
+                        subcolas[cpu_id].pop(0)
+
+                    # Emitir el estado actualizado de la subcola
                     socketio.emit('estado_actualizado', {
                         'cpu_id': cpu_id,
                         'subcola': [p.to_dict() for p in subcolas[cpu_id]]
                     })
+
             except Exception as e:
                 print(f"Error en worker_general para CPU {cpu_id}: {e}", flush=True)
             finally:
@@ -177,6 +223,31 @@ def inicio():
 def toggle_cpu():
     global cpu_activo
     cpu_activo = not cpu_activo
+
+    if cpu_activo:
+        # Sincronizar subcolas antes de iniciar la ejecución
+        with lock:
+            session = SessionFactory()
+            try:
+                for cpu_id in range(1, 5):
+                    # Cargar procesos desde la base de datos
+                    subcolas[cpu_id] = session.query(Proceso).filter_by(cpu_asignado=cpu_id).all()
+
+                    # Ordenar según el algoritmo actual
+                    if algoritmos[cpu_id] == "SJF":
+                        ordenar_sjf(subcolas[cpu_id])
+                    elif algoritmos[cpu_id] == "FCFS":
+                        ordenar_fcfs(subcolas[cpu_id])
+
+                    # Emitir el estado actualizado
+                    socketio.emit('estado_actualizado', {
+                        'cpu_id': cpu_id,
+                        'subcola': [p.to_dict() for p in subcolas[cpu_id]]
+                    })
+            finally:
+                session.close()
+
+    # Emitir el estado de la CPU
     socketio.emit('cpu_estado', {'activo': cpu_activo})
     return '', 200
 
@@ -218,8 +289,32 @@ def cambiar_algoritmo():
     cpu_id = int(request.form['cpu_id'])
     nuevo_algoritmo = request.form['algoritmo']
     algoritmos[cpu_id] = nuevo_algoritmo
+
+    # Emitir información del algoritmo cambiado al frontend
     socketio.emit('algoritmo_cambiado', {'cpu_id': cpu_id, 'algoritmo': nuevo_algoritmo})
-    return redirect('/')
+
+    # Sincronizar subcola con la base de datos y organizarla
+    with lock:
+        session = SessionFactory()
+        try:
+            # Cargar procesos asignados a este núcleo desde la base de datos
+            subcolas[cpu_id] = session.query(Proceso).filter_by(cpu_asignado=cpu_id).all()
+
+            # Ordenar según el algoritmo seleccionado
+            if nuevo_algoritmo == "SJF":
+                ordenar_sjf(subcolas[cpu_id])
+            elif nuevo_algoritmo == "FCFS":
+                ordenar_fcfs(subcolas[cpu_id])
+
+            # Emitir la subcola actualizada al frontend
+            socketio.emit('estado_actualizado', {
+                'cpu_id': cpu_id,
+                'subcola': [p.to_dict() for p in subcolas[cpu_id]]
+            })
+        finally:
+            session.close()
+
+    return '', 200
 
 @app.route('/cambiar_quantum', methods=['POST'])
 def cambiar_quantum():
