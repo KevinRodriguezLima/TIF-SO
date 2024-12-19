@@ -9,6 +9,8 @@ import time
 from threading import Thread, Lock
 import os
 from faker import Faker 
+from flask_migrate import Migrate
+
 
 app = Flask(__name__)
 db_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'instance', 'procesos.db')
@@ -17,10 +19,11 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 socketio = SocketIO(app)
+migrate = Migrate(app, db)
 
 SessionFactory = None
 
-def init_db():
+def init_db():  
     global SessionFactory
     with app.app_context():
         db.drop_all()
@@ -45,14 +48,13 @@ class Proceso(db.Model):
     tiempo_restante = db.Column(db.Integer, nullable=False)
     cpu_asignado = db.Column(db.Integer, nullable=True)
     
-    # Nuevos campos
-    estado = db.Column(db.String(50), default="En ejecución")  # Estado del proceso
-    contador_programa = db.Column(db.Integer, default=0)  # Contador de programa (PC)
-    direccion_base = db.Column(db.Integer, default=0x1000)  # Dirección base ficticia
-    info_entrada_salida = db.Column(db.String(50), default="Pendiente")  # Información E/S
-    tiempo = db.Column(db.Float, default=3.5)  # Tiempo ficticio en segundos
-    hora_llegada = db.Column(db.String(50), default=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))  # Hora de llegada
-    codigo = db.Column(db.String(50), default="0xABC123")  # Código ficticio
+    estado = db.Column(db.String(50), default="En ejecución")
+    contador_programa = db.Column(db.Integer, default=0)
+    direccion_base = db.Column(db.Integer, default=0x1000)
+    info_entrada_salida = db.Column(db.String(50), default="Pendiente")
+    tiempo = db.Column(db.Float, default=3.5)
+    codigo = db.Column(db.String(50), default="0xABC123")
+
 
     def to_dict(self):
         return {
@@ -64,10 +66,9 @@ class Proceso(db.Model):
         'cpu_asignado': self.cpu_asignado,
         'estado': self.estado,
         'contador_programa': self.contador_programa,
-        'direccion_base': self.direccion_base,  # No convertimos a hexadecimal, solo devolvemos la cadena
+        'direccion_base': self.direccion_base, 
         'info_entrada_salida': self.info_entrada_salida,
         'tiempo': self.tiempo,
-        'hora_llegada': self.hora_llegada,
         'codigo': self.codigo
     }
 
@@ -77,28 +78,41 @@ def insertar_procesos_en_bd():
     while True:
         session = SessionFactory()
         try:
-            for proc in psutil.process_iter(attrs=["pid", "name"]):
+            for proc in psutil.process_iter(attrs=["pid", "name", "status"]):
                 try:
                     pid = proc.info["pid"]
                     nombre = proc.info["name"]
+                    estado_real = proc.info["status"]
+
+                    
+                    if estado_real not in [psutil.STATUS_RUNNING, psutil.STATUS_SLEEPING, psutil.STATUS_STOPPED, psutil.STATUS_ZOMBIE]:
+                        continue  
+                    
+                    if estado_real == psutil.STATUS_RUNNING:
+                        estado = "En ejecución"
+                    elif estado_real == psutil.STATUS_SLEEPING:
+                        estado = "Dormido"
+                    elif estado_real == psutil.STATUS_STOPPED:
+                        estado = "Detenido"
+                    elif estado_real == psutil.STATUS_ZOMBIE:
+                        estado = "Zombie"
+                    else:
+                        estado = "Desconocido" 
+                    info_entrada_salida = "Pendiente" 
+
                     proceso_existente = session.query(Proceso).filter_by(id=pid).first()
+
                     if not proceso_existente:
-                        # Generar datos ficticios para todas las columnas
-                        prioridad = random.randint(1, 10)  # Prioridad entre 1 y 10
-                        tiempo_restante = random.randint(5, 15)  # Tiempo restante en segundos
-                        cpu_asignado = asignar_cpu(prioridad)  # Asignar CPU en base a la prioridad
-                        hora_inicio = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Hora actual
+                        prioridad = random.randint(1, 10)
+                        tiempo_restante = random.randint(5, 15)
+                        cpu_asignado = asignar_cpu(prioridad)  
+                        hora_inicio = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        
+                        contador_programa = random.randint(1000, 9999)
+                        direccion_base = f"0x{random.randint(0x1000, 0xFFFF):X}"
+                        tiempo = round(random.uniform(1.0, 5.0), 2)
+                        codigo = f"0x{random.randint(0x100000, 0xFFFFFF):X}"
 
-                        # Datos adicionales asegurados
-                        estado = random.choice(["En ejecución", "Terminado", "Esperando E/S"])
-                        contador_programa = random.randint(1000, 9999)  # Contador de programa aleatorio
-                        direccion_base = f"0x{random.randint(0x1000, 0xFFFF):X}"  # Dirección base en hexadecimal
-                        info_entrada_salida = random.choice(["Pendiente", "Lectura de disco", "Espera de archivo"])
-                        tiempo = round(random.uniform(1.0, 5.0), 2)  # Tiempo ficticio en segundos
-                        hora_llegada = (datetime.now() - timedelta(seconds=random.randint(0, 3600))).strftime('%Y-%m-%d %H:%M:%S')
-                        codigo = f"0x{random.randint(0x100000, 0xFFFFFF):X}"  # Código hexadecimal ficticio
-
-                        # Crear un nuevo proceso con datos completos
                         nuevo_proceso = Proceso(
                             id=pid,
                             nombre=nombre,
@@ -106,28 +120,29 @@ def insertar_procesos_en_bd():
                             hora_inicio=hora_inicio,
                             tiempo_restante=tiempo_restante,
                             cpu_asignado=cpu_asignado,
-                            estado=estado,
+                            estado=estado,  
                             contador_programa=contador_programa,
                             direccion_base=direccion_base,
-                            info_entrada_salida=info_entrada_salida,
+                            info_entrada_salida=info_entrada_salida,  
                             tiempo=tiempo,
-                            hora_llegada=hora_llegada,
                             codigo=codigo
                         )
-
-                        # Guardar el proceso
                         session.add(nuevo_proceso)
                         session.commit()
 
-                        # Emitir al frontend
-                        subcolas[cpu_asignado].append(nuevo_proceso)
                         socketio.emit('proceso_nuevo', nuevo_proceso.to_dict())
 
                 except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                    continue
+                    continue  
+
         finally:
             session.close()
         time.sleep(5)
+
+
+
+
+
 
 
 def ordenar_fcfs(subcola):
@@ -142,17 +157,15 @@ def worker_general(cpu_id):
             session = SessionFactory()
             try:
                 with lock:
-                    # Reasignar el proceso dentro de una sesión activa
                     proceso = subcolas[cpu_id][0]
                     proceso_db = session.query(Proceso).filter_by(id=proceso.id).first()
 
                     if not proceso_db:
-                        # Si el proceso no existe en la base de datos, eliminarlo de la subcola
                         subcolas[cpu_id].pop(0)
                         continue
 
                     if algoritmos[cpu_id] == "RR":
-                        # Round Robin
+                    
                         quantum_lógico = min(quantum_por_nucleo[cpu_id], proceso_db.tiempo_restante)
                         socketio.emit('proceso_ejecutandose', {
                             'cpu_id': cpu_id,
@@ -179,7 +192,6 @@ def worker_general(cpu_id):
                             subcolas[cpu_id].pop(0)
 
                     elif algoritmos[cpu_id] == "SJF":
-                        # Shortest Job First
                         ordenar_sjf(subcolas[cpu_id])
                         socketio.emit('proceso_ejecutandose', {
                             'cpu_id': cpu_id,
@@ -202,7 +214,6 @@ def worker_general(cpu_id):
                         subcolas[cpu_id].pop(0)
 
                     elif algoritmos[cpu_id] == "FCFS":
-                        # First Come First Serve
                         ordenar_fcfs(subcolas[cpu_id])
                         socketio.emit('proceso_ejecutandose', {
                             'cpu_id': cpu_id,
@@ -224,7 +235,6 @@ def worker_general(cpu_id):
                         session.commit()
                         subcolas[cpu_id].pop(0)
 
-                    # Emitir el estado actualizado de la subcola
                     socketio.emit('estado_actualizado', {
                         'cpu_id': cpu_id,
                         'subcola': [p.to_dict() for p in subcolas[cpu_id]]
@@ -260,10 +270,16 @@ def inicio():
     session = SessionFactory()
     try:
         for proceso in session.query(Proceso).all():
-            procesos_nucleo[proceso.cpu_asignado].append(proceso.to_dict())
+            proceso_dict = proceso.to_dict()
+            
+            for key in ['estado', 'contador_programa', 'direccion_base', 'info_entrada_salida', 'tiempo', 'hora_llegada', 'codigo']:
+                if proceso_dict.get(key) is None:  
+                    proceso_dict[key] = "N/A" 
+            procesos_nucleo[proceso.cpu_asignado].append(proceso_dict)
     finally:
         session.close()
     return render_template('index.html', procesos_nucleo=procesos_nucleo, procesos_terminados=procesos_terminados)
+
 
 @app.route('/toggle_cpu', methods=['POST'])
 def toggle_cpu():
@@ -271,21 +287,17 @@ def toggle_cpu():
     cpu_activo = not cpu_activo
 
     if cpu_activo:
-        # Sincronizar subcolas antes de iniciar la ejecución
         with lock:
             session = SessionFactory()
             try:
                 for cpu_id in range(1, 5):
-                    # Cargar procesos desde la base de datos
                     subcolas[cpu_id] = session.query(Proceso).filter_by(cpu_asignado=cpu_id).all()
 
-                    # Ordenar según el algoritmo actual
                     if algoritmos[cpu_id] == "SJF":
                         ordenar_sjf(subcolas[cpu_id])
                     elif algoritmos[cpu_id] == "FCFS":
                         ordenar_fcfs(subcolas[cpu_id])
 
-                    # Emitir el estado actualizado
                     socketio.emit('estado_actualizado', {
                         'cpu_id': cpu_id,
                         'subcola': [p.to_dict() for p in subcolas[cpu_id]]
@@ -293,7 +305,6 @@ def toggle_cpu():
             finally:
                 session.close()
 
-    # Emitir el estado de la CPU
     socketio.emit('cpu_estado', {'activo': cpu_activo})
     return '', 200
 
@@ -336,23 +347,18 @@ def cambiar_algoritmo():
     nuevo_algoritmo = request.form['algoritmo']
     algoritmos[cpu_id] = nuevo_algoritmo
 
-    # Emitir información del algoritmo cambiado al frontend
     socketio.emit('algoritmo_cambiado', {'cpu_id': cpu_id, 'algoritmo': nuevo_algoritmo})
 
-    # Sincronizar subcola con la base de datos y organizarla
     with lock:
         session = SessionFactory()
         try:
-            # Cargar procesos asignados a este núcleo desde la base de datos
             subcolas[cpu_id] = session.query(Proceso).filter_by(cpu_asignado=cpu_id).all()
 
-            # Ordenar según el algoritmo seleccionado
             if nuevo_algoritmo == "SJF":
                 ordenar_sjf(subcolas[cpu_id])
             elif nuevo_algoritmo == "FCFS":
                 ordenar_fcfs(subcolas[cpu_id])
 
-            # Emitir la subcola actualizada al frontend
             socketio.emit('estado_actualizado', {
                 'cpu_id': cpu_id,
                 'subcola': [p.to_dict() for p in subcolas[cpu_id]]
