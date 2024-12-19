@@ -69,6 +69,13 @@
                 <th>Nombre</th>
                 <th>Hora de Inicio</th>
                 <th>Prioridad</th>
+                <th>Estado</th>
+                <th>Contador de Programa</th>
+                <th>Dirección Base</th>
+                <th>Información E/S</th>
+                <th>Tiempo</th>
+                <th>Hora de Llegada</th>
+                <th>Código</th>
                 <th>Acciones</th>
             </tr>
         </thead>
@@ -76,9 +83,16 @@
             {% for proceso in procesos %}
             <tr id="fila-{{ proceso.id }}">
                 <td>{{ proceso.id }}</td>
-                <td>{{ proceso.nombre }}</td>
-                <td>{{ proceso.hora_inicio }}</td>
-                <td id="prioridad-{{ proceso.id }}">{{ proceso.prioridad }}</td>
+                <td>{{ proceso.nombre or "Proceso Desconocido" }}</td>
+                <td>{{ proceso.hora_inicio or "N/A" }}</td>
+                <td>{{ proceso.prioridad or "N/A" }}</td>
+                <td>{{ proceso.estado or "Desconocido" }}</td>
+                <td>{{ proceso.contador_programa or "N/A" }}</td>
+                <td>{{ proceso.direccion_base or "N/A" }}</td>
+                <td>{{ proceso.info_entrada_salida or "N/A" }}</td>
+                <td>{{ proceso.tiempo or "N/A" }}</td>
+                <td>{{ proceso.hora_llegada or "N/A" }}</td>
+                <td>{{ proceso.codigo or "N/A" }}</td>
                 <td>
                     <button onclick="cambiarPrioridad({{ proceso.id }}, -1)">-</button>
                     <button onclick="cambiarPrioridad({{ proceso.id }}, 1)">+</button>
@@ -88,16 +102,12 @@
             {% endfor %}
         </tbody>
     </table>
-    <br>
-    <a href="/">Volver</a>
-
     <script>
         const socket = io();
 
         function cambiarPrioridad(pid, delta) {
-            const prioridadActual = parseInt(document.getElementById(`prioridad-${pid}`).innerText);
+            const prioridadActual = parseInt(document.getElementById(prioridad-${pid}).innerText);
             const nuevaPrioridad = Math.max(0, Math.min(10, prioridadActual + delta)); 
-
             socket.emit('cambiar_prioridad', { pid: pid, prioridad: nuevaPrioridad });
         }
 
@@ -107,7 +117,7 @@
 
         socket.on('prioridad_cambiada', function (datos) {
             const { pid, nueva_prioridad } = datos;
-            const celdaPrioridad = document.getElementById(`prioridad-${pid}`);
+            const celdaPrioridad = document.getElementById(prioridad-${pid});
             if (celdaPrioridad) {
                 celdaPrioridad.innerText = nueva_prioridad;
             }
@@ -115,7 +125,7 @@
 
         socket.on('proceso_eliminado', function (datos) {
             const pid = datos.pid;
-            const fila = document.getElementById(`fila-${pid}`);
+            const fila = document.getElementById(fila-${pid});
             if (fila) {
                 fila.remove();
             }
